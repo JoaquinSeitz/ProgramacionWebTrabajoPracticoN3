@@ -1,0 +1,26 @@
+﻿@page "/"
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-16" Style="text-align: center;">
+    <MudIcon Icon="@Icons.Material.Filled.Storefront" Style="font-size: 120px;" Color="Color.Primary" Class="mb-6" />
+    
+    <MudText Typo="Typo.h3" Color="Color.Primary" Class="mb-2">Sistema de Gestión ChangoMás</MudText>
+    <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mb-8">Terminal de Punto de Venta y Control de Stock</MudText>
+    
+    <MudDivider Class="mb-8" />
+    
+    <AuthorizeView>
+        <Authorized>
+            <MudText Typo="Typo.body1">
+                Bienvenido/a. Utiliza el <strong>menú lateral</strong> para acceder a la Caja Registradora 
+                <AuthorizeView Roles="Admin" Context="adminContext">
+                    y al Ingreso de Mercadería.
+                </AuthorizeView>
+            </MudText>
+        </Authorized>
+        <NotAuthorized>
+            <MudAlert Severity="Severity.Info" ContentAlignment="HorizontalAlignment.Center">
+                Debes iniciar sesión en la esquina superior derecha para comenzar a operar.
+            </MudAlert>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudContainer>

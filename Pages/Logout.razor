@@ -1,0 +1,20 @@
+﻿@page "/logout"
+@using ProgramacionWebTrabajoPracticoN3.Services
+@inject LocalStorageService LocalStorage
+@inject NavigationManager NavigationManager
+
+<div class="d-flex justify-center align-center" style="height: 50vh;">
+    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+    <MudText Class="ml-3">Cerrando sesión de forma segura...</MudText>
+</div>
+
+@code {
+    protected override async Task OnInitializedAsync()
+    {
+        // 1. Eliminamos el token de seguridad almacenado en el navegador
+        await LocalStorage.RemoveItemAsync("authToken");
+
+        // 2. Forzamos una recarga dura de la aplicación para limpiar la memoria y redirigir al login
+        NavigationManager.NavigateTo("/login", forceLoad: true);
+    }
+}

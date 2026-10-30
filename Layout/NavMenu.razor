@@ -1,0 +1,26 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+<MudNavMenu>
+    <!-- Todo lo que esté aquí adentro SOLO se ve si el usuario está logueado -->
+    <AuthorizeView>
+        <Authorized>
+            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Home">
+                Inicio
+            </MudNavLink>
+            <MudNavLink Href="/puntoventa" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PointOfSale">
+                Punto Venta
+            </MudNavLink>
+        </Authorized>
+    </AuthorizeView>
+
+    <!-- Solo lo ve el Administrador -->
+    <AuthorizeView Roles="Admin">
+        <Authorized>
+            <MudNavLink Href="/ingresos" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.Inventory">
+                Ingresos y Alta
+            </MudNavLink>
+            <MudNavLink Href="/reportes" Match="NavLinkMatch.Prefix" Icon="@Icons.Material.Filled.PictureAsPdf">
+                Reportes PDF
+            </MudNavLink>
+        </Authorized>
+    </AuthorizeView>
+</MudNavMenu>

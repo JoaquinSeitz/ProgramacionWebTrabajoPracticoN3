@@ -1,0 +1,25 @@
+﻿@using Microsoft.AspNetCore.Components.Authorization
+
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(Layout.MainLayout)">
+                <NotAuthorized>
+                    <PageTitle>Acceso Denegado</PageTitle>
+                    <div style="text-align: center; margin-top: 100px; font-family: Roboto, sans-serif;">
+                        <h2 style="color: #d32f2f;">Acceso Denegado</h2>
+                        <p style="font-size: 18px; margin-bottom: 20px;">Debes iniciar sesión para usar el Punto de Venta.</p>
+                        <a href="/login" style="padding: 10px 20px; background-color: #594ae2; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">Ir a Iniciar Sesión</a>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>No encontrado</PageTitle>
+            <LayoutView Layout="@typeof(Layout.MainLayout)">
+                <p role="alert">Página no encontrada.</p>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

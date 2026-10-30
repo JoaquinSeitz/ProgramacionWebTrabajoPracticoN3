@@ -1,0 +1,349 @@
+﻿@page "/puntoventa"
+@attribute [Authorize(Roles = "Admin,Operador")]
+@using Microsoft.AspNetCore.Components.Authorization
+@using ProgramacionWebTrabajoPracticoN3.DTOs
+@using ProgramacionWebTrabajoPracticoN3.Services
+@using System.Net.Http.Json
+@using System.Net.Http.Headers
+@using System.Security.Claims
+@inject HttpClient Http
+@inject LocalStorageService LocalStorage
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ISnackbar Snackbar
+@inject IJSRuntime JS
+
+<MudText Typo="Typo.h4" Class="mb-4">Punto Venta</MudText>
+
+<MudGrid>
+    <!-- PANEL DE PRODUCTOS OPTIMIZADO -->
+    <MudItem xs="12" md="8">
+        <MudCard Elevation="3">
+            <MudCardHeader>
+                <CardHeaderContent>
+                    <MudText Typo="Typo.h6">Buscador de Productos</MudText>
+                </CardHeaderContent>
+            </MudCardHeader>
+            <MudCardContent>
+
+                <!-- Buscador Autocomplete con Plantilla Personalizada -->
+                <MudAutocomplete T="ProductoResponseDTO"
+                                 Label="Escribe el nombre del producto"
+                                 Value="productoBuscado"
+                                 ValueChanged="OnProductoSeleccionado"
+                                 SearchFunc="BuscarProductos"
+                                 ToStringFunc="@(p => p == null ? null : p.Nombre)"
+                                 ResetValueOnEmptyText="true"
+                                 CoerceText="true"
+                                 CoerceValue="false"
+                                 Variant="Variant.Outlined"
+                                 AdornmentIcon="@Icons.Material.Filled.Search"
+                                 Class="mb-4">
+
+                    <!-- DIBUJO DE CADA SUGERENCIA EN LA LISTA -->
+                    <ItemTemplate Context="prod">
+                        <div class="d-flex align-center w-100" style="padding: 8px 0; border-bottom: 1px solid #f0f0f0;">
+                            <div style="flex: 2;">
+                                <MudText Typo="Typo.body1" Style="font-weight: 500;">@prod.Nombre</MudText>
+                            </div>
+                            <div style="flex: 1;">
+                                <MudText Typo="Typo.body2" Color="Color.Secondary">$@prod.Precio.ToString("N2")</MudText>
+                            </div>
+                            <div style="flex: 1;">
+                                <MudChip T="string" Color="@(prod.Stock > 0 ? Color.Success : Color.Error)" Size="Size.Small">
+                                    Stock: @prod.Stock
+                                </MudChip>
+                            </div>
+                            <div style="flex: 1; text-align: right;">
+                                <!-- Envolvemos el botón en un div para cortar la propagación del clic sin causar conflictos en MudBlazor -->
+                                <div @onclick:stopPropagation="true" class="d-inline-block">
+                                    <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Primary"
+                                               OnClick="@(() => AgregarAlCarrito(prod))"
+                                               Disabled="@(prod.Stock == 0)">
+                                        AGREGAR
+                                    </MudButton>
+                                </div>
+                            </div>
+                        </div>
+                    </ItemTemplate>
+
+                </MudAutocomplete>
+
+                @if (productos == null)
+                {
+                    <MudProgressCircular Color="Color.Primary" Indeterminate="true" />
+                }
+                else
+                {
+                    <div class="d-flex flex-column align-center justify-center" style="min-height: 250px; opacity: 0.5;">
+                        <MudIcon Icon="@Icons.Material.Filled.PointOfSale" Style="font-size: 80px;" Class="mb-3" />
+                        <MudText Typo="Typo.h6">El Punto de Venta está listo.</MudText>
+                        <MudText Typo="Typo.body2">Utiliza el buscador superior para encontrar productos y agregarlos al ticket.</MudText>
+                    </div>
+                }
+            </MudCardContent>
+        </MudCard>
+    </MudItem>
+
+    <!-- PANEL DE CONFIGURACIÓN Y CARRITO -->
+    <MudItem xs="12" md="4">
+        <MudCard Elevation="3" Class="pa-4 bg-light">
+            <MudText Typo="Typo.h6" Class="mb-3">Configuración de Venta</MudText>
+
+            <MudAutocomplete T="ClienteResponseDTO"
+                             Label="Buscar y Seleccionar Cliente"
+                             @bind-Value="clienteSeleccionado"
+                             SearchFunc="BuscarClientes"
+                             ToStringFunc="@(c => c == null ? null : c.Nombre)"
+                             ResetValueOnEmptyText="true"
+                             CoerceText="true"
+                             CoerceValue="true"
+                             Variant="Variant.Outlined"
+                             AdornmentIcon="@Icons.Material.Filled.PersonSearch"
+                             Class="mb-2" />
+
+            @if (clienteSeleccionado?.ClienteId == 1)
+            {
+                <MudTextField @bind-Value="emailManual" Label="Correo Opcional (Para enviar ticket)" Variant="Variant.Outlined" Class="mb-4" />
+            }
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.h6" Class="mb-3">Ticket Actual</MudText>
+            @if (!carrito.Any())
+            {
+                <MudText Typo="Typo.body2" Color="Color.Secondary">El carrito está vacío.</MudText>
+            }
+            else
+            {
+                <MudList T="CartItem" Dense="true">
+                    @foreach (var item in carrito)
+                    {
+                        <MudListItem T="CartItem">
+                            <div class="d-flex justify-space-between w-100">
+                                <MudText Typo="Typo.body2">@item.Cantidad x @item.Nombre</MudText>
+                                <MudText Typo="Typo.body2" Style="font-weight:bold;">$@(item.Subtotal.ToString("N2"))</MudText>
+                            </div>
+                            <MudButton Variant="Variant.Text" Color="Color.Error" Size="Size.Small" OnClick="@(() => QuitarDelCarrito(item))">Quitar</MudButton>
+                        </MudListItem>
+                        <MudDivider />
+                    }
+                </MudList>
+
+                <div class="mt-4 d-flex justify-space-between align-center">
+                    <MudText Typo="Typo.h5">Total:</MudText>
+                    <MudText Typo="Typo.h5" Color="Color.Success" Style="font-weight:bold;">$@TotalVenta.ToString("N2")</MudText>
+                </div>
+
+                <MudButton Variant="Variant.Filled" Color="Color.Success" FullWidth="true" Class="mt-4" Size="Size.Large"
+                           OnClick="ConfirmarVenta" Disabled="procesandoVenta">
+                    @(procesandoVenta ? "Procesando..." : "Confirmar Venta")
+                </MudButton>
+            }
+        </MudCard>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<ProductoResponseDTO>? productos;
+    private List<ClienteResponseDTO> clientes = new();
+    private List<CartItem> carrito = new();
+
+    private ClienteResponseDTO? clienteSeleccionado;
+    private ProductoResponseDTO? productoBuscado;
+
+    private string emailManual = string.Empty;
+    private bool procesandoVenta = false;
+
+    private decimal TotalVenta => carrito.Sum(c => c.Subtotal);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var token = await LocalStorage.GetItemAsync<string>("authToken");
+            if (!string.IsNullOrEmpty(token))
+            {
+                Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            }
+            await CargarDatos();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error al inicializar la caja: {ex.Message}", Severity.Error);
+        }
+    }
+
+    private async Task CargarDatos()
+    {
+        try
+        {
+            productos = await Http.GetFromJsonAsync<List<ProductoResponseDTO>>("api/Productos");
+        }
+        catch
+        {
+            productos = new List<ProductoResponseDTO>();
+            Snackbar.Add("No se pudieron cargar los productos del servidor.", Severity.Error);
+        }
+
+        try
+        {
+            var clientesDb = await Http.GetFromJsonAsync<List<ClienteResponseDTO>>("api/Clientes/lista");
+            if (clientesDb != null && clientesDb.Any())
+            {
+                clientes = clientesDb;
+            }
+            else
+            {
+                clientes = new List<ClienteResponseDTO> { new ClienteResponseDTO { ClienteId = 1, Nombre = "Consumidor Final" } };
+            }
+        }
+        catch
+        {
+            clientes = new List<ClienteResponseDTO> { new ClienteResponseDTO { ClienteId = 1, Nombre = "Consumidor Final" } };
+        }
+
+        clienteSeleccionado = clientes.FirstOrDefault(c => c.ClienteId == 1) ?? clientes.First();
+    }
+
+    private async Task<IEnumerable<ClienteResponseDTO>> BuscarClientes(string value, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(value)) return clientes;
+        return clientes.Where(c => c.Nombre.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private async Task<IEnumerable<ProductoResponseDTO>> BuscarProductos(string value, CancellationToken token)
+    {
+        if (string.IsNullOrEmpty(value) || productos == null) return new List<ProductoResponseDTO>();
+        return productos.Where(p => p.Nombre.Contains(value, StringComparison.InvariantCultureIgnoreCase));
+    }
+
+    private void OnProductoSeleccionado(ProductoResponseDTO producto)
+    {
+        if (producto != null)
+        {
+            AgregarAlCarrito(producto);
+            productoBuscado = null;
+        }
+    }
+
+    private void AgregarAlCarrito(ProductoResponseDTO producto)
+    {
+        var itemExistente = carrito.FirstOrDefault(c => c.ProductoId == producto.ProductoId);
+        if (itemExistente != null)
+        {
+            if (itemExistente.Cantidad < producto.Stock) itemExistente.Cantidad++;
+            else Snackbar.Add("No hay más stock disponible.", Severity.Warning);
+        }
+        else
+        {
+            if (producto.Stock > 0)
+                carrito.Add(new CartItem { ProductoId = producto.ProductoId, Nombre = producto.Nombre, Precio = producto.Precio, Cantidad = 1 });
+            else
+                Snackbar.Add("Producto sin stock.", Severity.Warning);
+        }
+    }
+
+    private void QuitarDelCarrito(CartItem item) => carrito.Remove(item);
+
+    private async Task ConfirmarVenta()
+    {
+        if (!carrito.Any())
+        {
+            Snackbar.Add("El carrito está vacío.", Severity.Warning);
+            return;
+        }
+
+        procesandoVenta = true;
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var userIdClaim = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            int usuarioLogueadoId = int.Parse(userIdClaim ?? "0");
+            int cId = clienteSeleccionado?.ClienteId ?? 1;
+
+            var request = new SalidaProductoRequestDTO
+            {
+                ClienteId = cId,
+                UsuarioId = usuarioLogueadoId,
+                EmailManual = cId == 1 ? emailManual : null,
+                Detalles = carrito.Select(c => new DetalleMovimientoRequestDTO
+                {
+                    ProductoId = c.ProductoId,
+                    Cantidad = c.Cantidad
+                }).ToList()
+            };
+
+            var response = await Http.PostAsJsonAsync("api/SalidaProductos", request);
+
+            if (response.IsSuccessStatusCode)
+            {
+                Snackbar.Add("Venta registrada exitosamente.", Severity.Success);
+
+                // EXTRAER ID DE LA VENTA Y FORZAR DESCARGA
+                var resultado = await response.Content.ReadFromJsonAsync<RespuestaVentaDTO>();
+                if (resultado != null && resultado.SalidaId > 0)
+                {
+                    await DescargarTicketPdf(resultado.SalidaId);
+                }
+
+                carrito.Clear();
+                emailManual = string.Empty;
+                clienteSeleccionado = clientes.FirstOrDefault(c => c.ClienteId == 1) ?? clientes.First();
+                await CargarDatos();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                Snackbar.Add($"Error: {error}", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error interno: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            procesandoVenta = false;
+        }
+    }
+
+    private async Task DescargarTicketPdf(int salidaId)
+    {
+        try
+        {
+            Snackbar.Add("Generando ticket PDF...", Severity.Info);
+            var pdfResponse = await Http.GetAsync($"api/Reportes/ticket/{salidaId}");
+
+            if (pdfResponse.IsSuccessStatusCode)
+            {
+                var pdfBytes = await pdfResponse.Content.ReadAsByteArrayAsync();
+                var base64 = Convert.ToBase64String(pdfBytes);
+                await JS.InvokeVoidAsync("descargarArchivo", $"Ticket_Venta_{salidaId}.pdf", "application/pdf", base64);
+            }
+            else
+            {
+                Snackbar.Add("La venta se guardó, pero no se pudo descargar el ticket PDF.", Severity.Warning);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error de red al descargar ticket: {ex.Message}", Severity.Error);
+        }
+    }
+
+    public class RespuestaVentaDTO
+    {
+        public int SalidaId { get; set; }
+        public decimal TotalCobrado { get; set; }
+        public string Mensaje { get; set; } = string.Empty;
+    }
+
+    public class CartItem
+    {
+        public int ProductoId { get; set; }
+        public string Nombre { get; set; } = string.Empty;
+        public decimal Precio { get; set; }
+        public int Cantidad { get; set; }
+        public decimal Subtotal => Precio * Cantidad;
+    }
+}
