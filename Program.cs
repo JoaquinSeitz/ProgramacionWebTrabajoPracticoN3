@@ -9,13 +9,13 @@ var builder = WebAssemblyHostBuilder.CreateDefault(args);
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
 
-// 1. Configurar HttpClient apuntando a tu backend en HTTPS
-builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://localhost:7133/") });
+// 1. Configurar HttpClient apuntando a tu backend de producción en HTTPS (MonsterASP)
+builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri("https://tp5-joaco-alex.runasp.net/") });
 
 // 2. Registrar nuestro LocalStorageService nativo
 builder.Services.AddScoped<LocalStorageService>();
 
-// 3. Registrar el proveedor de estado de autenticación (lo crearemos en el próximo paso)
+// 3. Registrar el proveedor de estado de autenticación
 builder.Services.AddScoped<AuthenticationStateProvider, CustomAuthenticationStateProvider>();
 builder.Services.AddAuthorizationCore();
 
